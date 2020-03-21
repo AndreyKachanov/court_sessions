@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\HomeController;
+use App\Http\Middleware\SetCourtSessionsToRedis;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -13,6 +15,8 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-Route::get('/', function () {
-    return view('welcome');
-});
+Route::get('/', [HomeController::class, 'index'])
+    ->name('home')
+    ->middleware(SetCourtSessionsToRedis::class);
+
+Route::post('change_room_number', [HomeController::class, 'setRoomNumber'])->name('change_room_number');

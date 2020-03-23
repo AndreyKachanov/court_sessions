@@ -1,5 +1,5 @@
 @extends('layouts.app')
-<h1>test</h1>
+
 @section('content')
     <div class="tab-content" id="pills-tabContent">
         <div class="tab-pane fade show active" id="pills-home" role="tabpanel" aria-labelledby="pills-home-tab">

@@ -22,7 +22,7 @@ class HomeController extends Controller
     {
         $fields = $this->service->getFields();
         //dump($fields);
-        $items = $this->service->getItems();
+        $items = $this->service->getCurrentDayItemsFromRedis();
         //dd($items);
         return view('court_sessions.index', [
             'fields' => $fields,

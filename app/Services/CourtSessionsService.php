@@ -102,7 +102,7 @@ class CourtSessionsService
         return $arr;
     }
 
-    public function getItems(): array
+    public function getCurrentDayItemsFromRedis(): array
     {
         $currentDay = Carbon::now();
         //dd($currentDay->dayOfWeek);

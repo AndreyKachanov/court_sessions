@@ -22,10 +22,14 @@ return [
             'name' => 'Суть позову',
             'sortable' => false,
         ],
+        //[
+        //    'name' => 'Адреса',
+        //    'sortable' => false,
+        //],
         [
             'name' => 'Зал',
             'sortable' => true,
         ]
     ],
-    'exclude_address' => '01601, Київ, Хрещатик, 42а',
+    'need_address' => '03057, м. Київ, просп. Перемоги, 41',
 ];

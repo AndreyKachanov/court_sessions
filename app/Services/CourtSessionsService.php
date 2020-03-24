@@ -15,12 +15,12 @@ class CourtSessionsService
      */
     private Client $client;
 
-    private string $excludeAddress;
+    private string $needAddress;
 
     public function __construct(Client $client)
     {
         $this->client = $client;
-        $this->excludeAddress = trim(config('court_sessions.exclude_address'));
+        $this->needAddress = trim(config('court_sessions.need_address'));
         //dd($this->excludeAddress);
     }
 
@@ -102,48 +102,47 @@ class CourtSessionsService
         return $arr;
     }
 
-    public function getCurrentDayItemsFromRedis(): array
+    public function getCurrentDayItemsFromRedis(): Collection
     {
-        $currentDay = Carbon::now();
+        //$currentDay = Carbon::now();
         //dd($currentDay->dayOfWeek);
         $itemsFromRedis = RedisService::getAll()->sortBy('key')->values();
 
         //Если сегодня не суббота и не воскресенье - извлекаем данные за текущий день
-        if ($currentDay->dayOfWeek === 6 || $currentDay->dayOfWeek === 0) {
-            //dd('суббота воскр');
-            $courtSessions = $this->getFirstMondayItems($itemsFromRedis);
-            //dd($courtSessions);
-        }
+        //if ($currentDay->dayOfWeek === 6 || $currentDay->dayOfWeek === 0) {
+        //    dd('суббота воскр');
+        //    $courtSessions = $this->getFirstMondayItems($itemsFromRedis);
+        //    //dd($courtSessions);
+        //}
         //иначе за первый понедельник
-        else {
+        //else {
             //dd('пн - пт');
-
             $courtSessions = $this->getCurrentDayItems($itemsFromRedis);
-        }
+        //}
 
         //dd($courtSessions);
         return $this->convertItems($courtSessions);
 
     }
 
-    public function getCurrentTimeItemsFromRedis(): array
+    public function getCurrentTimeItemsFromRedis(): Collection
     {
-        $currentDay = Carbon::now();
+        //$currentDay = Carbon::now();
         //dd($currentDay->dayOfWeek);
         $itemsFromRedis = RedisService::getAll()->sortBy('key')->values();
 
         //Если сегодня не суббота и не воскресенье - извлекаем данные за текущий день
-        if ($currentDay->dayOfWeek === 6 || $currentDay->dayOfWeek === 0) {
-            //dd('суббота воскр');
-            $courtSessions = $this->getFirstMondayItems($itemsFromRedis);
-            //dd($courtSessions);
-        }
+        //if ($currentDay->dayOfWeek === 6 || $currentDay->dayOfWeek === 0) {
+        //    //dd('суббота воскр');
+        //    $courtSessions = $this->getFirstMondayItems($itemsFromRedis);
+        //    //dd($courtSessions);
+        //}
         //иначе за первый понедельник
-        else {
+        //else {
             //dd('пн - пт');
 
-            $courtSessions = $this->getMoreCurrentTime($itemsFromRedis);
-        }
+            $courtSessions = $this->getMoreCurrentTimeItems($itemsFromRedis);
+        //}
 
         return $this->convertItems($courtSessions);
     }
@@ -156,14 +155,17 @@ class CourtSessionsService
     public function getCurrentDayItems(Collection $collection): Collection
     {
         $collection = $collection->filter(function ($item, $key) {
-
+            //dd($item);
             if (!isset($item['date'])) {
                 dd("No key 'date' in this key ->> " . $key);
             }
+            $isToday = Carbon::parse($item['date'])->isToday();
+            //dd($isToday);
+            $needAddress = ($item['add_address'] === $this->needAddress);
 
-            return Carbon::parse($item['date'])->isToday();
+            return $isToday && $needAddress;
         });
-
+        //dd($collection);
         return $collection;
     }
 
@@ -175,14 +177,22 @@ class CourtSessionsService
             if (!isset($itemDate)) {
                 dd("No key 'date' in this key ->> " . $key);
             }
-            return Carbon::parse($itemDate)->diffInDays($firstMonday) == 0;
+
+            $needAddress = ($item['add_address'] === $this->needAddress);
+            $isFirstMonday = Carbon::parse($itemDate)->diffInDays($firstMonday) == 0;
+
+            return $needAddress && $isFirstMonday;
         });
     }
 
-    public function getMoreCurrentTime(Collection $collection): Collection
+    public function getMoreCurrentTimeItems(Collection $collection): Collection
     {
         $collection = $collection = $collection->filter(function ($item, $key) {
-
+            //dump($item);
+            //$t = ($item['add_address'] === $this->excludeAddress);
+            //dd($t);
+            //dump($item['add_address']);
+            //dd($this->excludeAddress);
             if (!isset($item['date'])) {
                 dd("No key 'date' in this key ->> " . $key);
             }
@@ -190,28 +200,30 @@ class CourtSessionsService
 
             $isToday = Carbon::parse($item['date'])->isToday();
             $greaterCurrent = $dateInCollection->greaterThan(Carbon::now());
-
-            return $isToday && $greaterCurrent;
+            $needAddress = ($item['add_address'] === $this->needAddress);
+            return $isToday && $greaterCurrent && $needAddress;
         });
 
         return $collection;
     }
 
-    public function convertItems(Collection $collection): array
+    public function convertItems(Collection $collection): Collection
     {
         $arr = [];
         $columns = config('court_sessions.columns');
         foreach ($columns as $column) {
             $columnKeys[] = $column['name'];
         }
-        $columnKeys[] = 'Адреса';
+        //$columnKeys[] = 'Адреса';
+        //unset($columnKeys[5]);
         $columnKeys[] = 'key';
+        //dump($columnKeys);
         foreach ($collection as $item) {
-            if ($item['add_address'] !== $this->excludeAddress) {
-                $arr[] = array_combine($columnKeys, $this->sortArrayKeys($item));
-            }
+            unset($item['add_address']);
+            //dd(array_combine($columnKeys, $this->sortArrayKeys($item)));
+            $arr[] = array_combine($columnKeys, $this->sortArrayKeys($item));
         }
-        return $arr;
+        return collect($arr);
     }
 
     /**
@@ -242,7 +254,6 @@ class CourtSessionsService
             'involved',
             'description',
             'courtroom',
-            'add_address',
         ];
 
         //dd(array_replace(array_flip($order), $item));

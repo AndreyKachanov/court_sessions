@@ -11,4 +11,4 @@
             </court_sessions-component>
         </div>
     </div>
-@endsection`
+@endsection

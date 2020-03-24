@@ -22,7 +22,8 @@ class HomeController extends Controller
     {
         $fields = $this->service->getFields();
         //dump($fields);
-        $items = $this->service->getCurrentDayItemsFromRedis();
+        //$items = $this->service->getCurrentDayItemsFromRedis();
+        $items = $this->service->getCurrentTimeItemsFromRedis();
         //dd($items);
         return view('court_sessions.index', [
             'fields' => $fields,

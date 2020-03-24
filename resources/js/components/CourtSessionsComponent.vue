@@ -7,8 +7,7 @@
                             id="table-transition-example"
                             :fields="fieldsForTable"
                             :items="itemsForTable"
-                            striped
-                            small
+                            bordered
                             :primary-key="primaryKey"
                             :tbody-transition-props="transProps"
                     >

@@ -17,17 +17,7 @@
 <body>
     <div id="app">
         <header>
-            <nav class="navbar navbar-expand-md navbar-dark">
-                <div class="container-fluid">
-                    <a class="navbar-brand" href="{{ url('/') }}">
-                        {{ config('app.author') }}
-                    </a>
-                    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
-                        <span class="navbar-toggler-icon"></span>
-                    </button>
-
-                </div>
-            </nav>
+            <h1 class="text-center">Розклад засідань</h1>
         </header>
 
         <main class="app-content py-3">
@@ -37,11 +27,11 @@
         </main>
 
         <footer>
-            <div class="container-fluid">
-                <div class="border-top pt-3">
-                    <p style="text-align: center;">&copy; {{ date('Y') }} - {{ config('app.author') }}</p>
-                </div>
-            </div>
+{{--            <div class="container-fluid">--}}
+{{--                <div class="border-top pt-3">--}}
+{{--                    <p style="text-align: center;">&copy; {{ date('Y') }} - {{ config('app.author') }}</p>--}}
+{{--                </div>--}}
+{{--            </div>--}}
         </footer>
 
     </div>

@@ -19,6 +19,11 @@
     display: flex;
     flex-direction: column;
     flex-grow: 2;
+
+    h1 {
+        color: rgb(0, 39, 78);
+        margin-top: 25px;
+    }
 }
 
 .navbar {
@@ -108,14 +113,14 @@ body {
 }
 
 .chartjs table {
-    border: 1px solid #303054;
-    border-radius: 3px;
-    background-color: #fff;
-    border-collapse: separate;
-    border-spacing: 1px;
+    border: 1px solid $courtsessions-bg-color;
+    border-radius: 5px;
+    //background-color: #fff;
+    border-collapse: collapse;
+    //border-spacing: 1px;
 
     th {
-        background-color: #8e8eff;
+        background-color: $courtsessions-bg-color;
         color: #fff;
         cursor: pointer;
         -webkit-user-select: none;
@@ -152,7 +157,7 @@ body {
     }
 
     th:nth-child(2), td:nth-child(2) {
-        min-width: 120px;
+        min-width: 140px;
         //min-width: max-content;
     }
 

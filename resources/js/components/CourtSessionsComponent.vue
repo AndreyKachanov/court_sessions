@@ -66,7 +66,7 @@
                 this.itemsForTable = this.itemsForTable.filter(item =>  this.parseDate(item['Час']) > now);
 
                 if (length !== this.itemsForTable.length) {
-                    console.log('changes!', this.itemsForTable);
+                    // console.log('changes!', this.itemsForTable);
                 }
 
                 if (this.itemsForTable.length === 0) {
@@ -82,9 +82,9 @@
             }
         },
         mounted() {
-            this.removeItems();
-            const ONE_MINUTE = 30000;
-            this.timer = setInterval(this.removeItems, ONE_MINUTE);
+            // this.removeItems();
+            // const ONE_MINUTE = 30000;
+            // this.timer = setInterval(this.removeItems, ONE_MINUTE);
         }
     }
 </script>

@@ -38,6 +38,8 @@ class SetCourtSessionsToRedis
             //Получаем первый элемент из редиса и сравниваем, текущий ли это день
             //Если не текущий - очщаем редис
             //Нужно для того, чтобы каждое утро были свежие данные
+            //dd(RedisService::getAll());
+            //dd(RedisService::getAll()->sortBy('key')->values()[0]['date']);
             $firstItemDate = Carbon::parse(RedisService::getAll()->sortBy('key')->values()[0]['date']);
             //dump($firstItemDate);
             //dump(Carbon::now());

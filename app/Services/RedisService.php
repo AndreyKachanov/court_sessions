@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use Exception;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Redis;
 
@@ -39,10 +40,12 @@ class RedisService
      */
     private string $room;
 
-    /**
-     * @var string
-     */
-    public static string $prefix = 'court_session:';
+
+    //public static string $prefix = 'court_session:';
+
+    public const MY_PREFIX = 'court_session';
+    public const SEARCH_PATTERN = self::MY_PREFIX . ':*';
+
 
     /**
      * RedisService constructor.
@@ -118,23 +121,32 @@ class RedisService
 
     /**
      * @return Collection
+     * @throws Exception
      */
     public static function getAll(): Collection
     {
-        $keys = Redis::keys(self::$prefix . '*');
-        $courtSessions = [];
         $frameworkPrefix = config('database.redis.options.prefix');
+        // фреймворк по умолчанию подставляет префикс rozklad_zasidan_database_
+        // общий префикс получается 'rozklad_zasidan_database_court_session:*'
+        $keys = Redis::keys(self::SEARCH_PATTERN);
+        //dd($keys);
+        if (count($keys) === 0) {
+            $errorMessage = "No keys with pattern - " . $frameworkPrefix . self::SEARCH_PATTERN ;
+            throw new Exception($errorMessage);
+        }
+        $courtSessions = [];
         foreach ($keys as $key) {
-            $stored = Redis::hgetall(explode($frameworkPrefix, $key)[1]);
-            $courtSessions[] = $stored;
+            //удаляем explodom префикс фреймворка
+            $courtSessions[] = Redis::hgetall(explode($frameworkPrefix, $key)[1]);
         }
         return collect($courtSessions);
     }
 
     public static function removeOldKeys()
     {
+        dump('remove');
         $frameworkPrefix = config('database.redis.options.prefix');
-        $keys = Redis::keys(self::$prefix . '*');
+        $keys = Redis::keys(self::SEARCH_PATTERN);
         foreach ($keys as $key) {
             Redis::del(explode($frameworkPrefix, $key)[1]);
         }
@@ -147,7 +159,7 @@ class RedisService
      */
     public static function getKey(string $date, string $number): string
     {
-        return self::$prefix . '_' . $date . '_' . $number;
+        return self::MY_PREFIX . ':' . $date . '_' . $number;
     }
 
     /**
@@ -155,7 +167,7 @@ class RedisService
      */
     public static function getCountKeys(): int
     {
-        return count(Redis::keys(self::$prefix . '*'));
+        return count(Redis::keys(self::SEARCH_PATTERN));
     }
 
     /**
@@ -177,5 +189,15 @@ class RedisService
             );
             $courtSession->store();
         }
+    }
+
+    /**
+     * @param Collection $fetchedItems
+     */
+    public static function updateData(Collection $fetchedItems) {
+        Redis::transaction(function() use ($fetchedItems) {
+            RedisService::removeOldKeys();
+            RedisService::insertToRedis($fetchedItems);
+        });
     }
 }

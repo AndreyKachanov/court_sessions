@@ -130,6 +130,8 @@ class CourtSessionsService
         //$currentDay = Carbon::now();
         //dd($currentDay->dayOfWeek);
         $itemsFromRedis = RedisService::getAll()->sortBy('key')->values();
+        //$itemsFromRedis = RedisService::getAll()->sortBy('key')->values();
+        //dd($itemsFromRedis);
 
         //Если сегодня не суббота и не воскресенье - извлекаем данные за текущий день
         //if ($currentDay->dayOfWeek === 6 || $currentDay->dayOfWeek === 0) {
@@ -219,6 +221,7 @@ class CourtSessionsService
         $columnKeys[] = 'key';
         //dump($columnKeys);
         foreach ($collection as $item) {
+            //dd($item);
             unset($item['add_address']);
             //dd(array_combine($columnKeys, $this->sortArrayKeys($item)));
             $arr[] = array_combine($columnKeys, $this->sortArrayKeys($item));

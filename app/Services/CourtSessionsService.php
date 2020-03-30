@@ -125,33 +125,46 @@ class CourtSessionsService
 
     }
 
+    /**
+     * @return Collection
+     */
     public function getCurrentTimeItemsFromRedis(): Collection
     {
-        //$currentDay = Carbon::now();
-        //dd($currentDay->dayOfWeek);
-        $itemsFromRedis = RedisService::getAll()->sortBy('key')->values();
-        //$itemsFromRedis = RedisService::getAll()->sortBy('key')->values();
-        //dd($itemsFromRedis);
+        try {
+            $itemsFromRedis = RedisService::getAll()->sortBy('key')->values();
+            //dd($itemsFromRedis);
+        } catch (Exception $e) {
+            $errorMsg = sprintf(
+                'Error get all items from redis. %s.  Class - %s, line - %d',
+                $e->getMessage(),
+                __CLASS__,
+                __LINE__
+            );
+             dd($errorMsg);
+        }
 
-        //Если сегодня не суббота и не воскресенье - извлекаем данные за текущий день
-        //if ($currentDay->dayOfWeek === 6 || $currentDay->dayOfWeek === 0) {
-        //    //dd('суббота воскр');
-        //    $courtSessions = $this->getFirstMondayItems($itemsFromRedis);
-        //    //dd($courtSessions);
-        //}
-        //иначе за первый понедельник
-        //else {
-            //dd('пн - пт');
-
-            $courtSessions = $this->getMoreCurrentTimeItems($itemsFromRedis);
-        //}
-
+        $courtSessions = $this->getMoreCurrentTimeItems($itemsFromRedis);
         return $this->convertItems($courtSessions);
     }
 
+    /**
+     * @return Collection
+     */
     public function getItemsFromRedis(): Collection
     {
-        return RedisService::getAll()->sortBy('key')->values();
+        try {
+            $items = RedisService::getAll()->sortBy('key')->values();
+        } catch (Exception $e) {
+            $errorMsg = sprintf(
+                'Error get all items from redis. %s.  Class - %s, line - %d',
+                $e->getMessage(),
+                __CLASS__,
+                __LINE__
+            );
+            dd($errorMsg);
+        }
+
+        return $items;
     }
 
     public function getCurrentDayItems(Collection $collection): Collection
@@ -164,6 +177,7 @@ class CourtSessionsService
             $isToday = Carbon::parse($item['date'])->isToday();
             //dd($isToday);
             $needAddress = ($item['add_address'] === $this->needAddress);
+            //$needAddress = true;
 
             return $isToday && $needAddress;
         });
@@ -221,8 +235,8 @@ class CourtSessionsService
         $columnKeys[] = 'key';
         //dump($columnKeys);
         foreach ($collection as $item) {
-            //dd($item);
             unset($item['add_address']);
+            //dump($item);
             //dd(array_combine($columnKeys, $this->sortArrayKeys($item)));
             $arr[] = array_combine($columnKeys, $this->sortArrayKeys($item));
         }

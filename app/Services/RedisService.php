@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Events\SendCourtSessionsToPusherWithQueue;
 use Exception;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Redis;
@@ -144,9 +145,11 @@ class RedisService
 
     public static function removeOldKeys()
     {
-        dump('remove');
+        dump('Remove items from redis.');
         $frameworkPrefix = config('database.redis.options.prefix');
         $keys = Redis::keys(self::SEARCH_PATTERN);
+        //Redis::hdel($keys);
+        //dd(Redis::keys(self::SEARCH_PATTERN));
         foreach ($keys as $key) {
             Redis::del(explode($frameworkPrefix, $key)[1]);
         }
@@ -175,8 +178,9 @@ class RedisService
      */
     public static function insertToRedis(Collection $courtSessions)
     {
-        dump("insert to redis");
+        dump("Insert items to redis.");
         foreach ($courtSessions as $key => $item) {
+            //dump($item);
             $courtSession = new self(
                 $key,
                 $item['date'],
@@ -194,10 +198,32 @@ class RedisService
     /**
      * @param Collection $fetchedItems
      */
-    public static function updateData(Collection $fetchedItems) {
-        Redis::transaction(function() use ($fetchedItems) {
-            RedisService::removeOldKeys();
-            RedisService::insertToRedis($fetchedItems);
-        });
+    public static function updateData(Collection $fetchedItems, Collection $itemsToPusher) {
+        //dd($fetchedItems);
+        try {
+            //Redis::transaction(function() use ($fetchedItems, $itemsToPusher) {
+                //dd($fetchedItems);
+                RedisService::removeOldKeys();
+                RedisService::insertToRedis($fetchedItems);
+
+                $itemsToPusher->each(function ($item, $key) {
+                    //добавляем ключ clear для первого элемента массива -
+                    //нужно для того, чтобы очистить массив с элементами на фронте
+                    if ($key === 0 ) {
+                        $item['clear'] = '';
+                    }
+
+                    broadcast(new SendCourtSessionsToPusherWithQueue($item));
+                });
+            //});
+        } catch (Exception $e) {
+            $errorMsg = sprintf(
+                'Парсинг заседаний. Ошибка во время обновления данных. %s.  Class - %s, line - %d',
+                $e->getMessage(),
+                __CLASS__,
+                __LINE__
+            );
+            dd($errorMsg);
+        }
     }
 }

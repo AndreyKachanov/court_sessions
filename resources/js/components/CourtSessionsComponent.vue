@@ -3,6 +3,7 @@
         <div class="row">
             <div class="col-sm-12">
                 <div class="chartjs">
+<!--                    {{ test }}-->
                     <b-table
                             id="table-transition-example"
                             :fields="fieldsForTable"
@@ -35,9 +36,17 @@
                     name: 'flip-list'
                 },
                 intervalId: null,
+                arr: [],
             };
         },
-
+        computed: {
+            channel() {
+                return window.Echo.channel('courtsessions-channel');
+            },
+            test: function() {
+                return (this.arr.length > 0) ? this.arr : this.itemsForTable
+            }
+        },
         methods: {
             changeRoomNumber(e, item){
                 // let obj = {};
@@ -65,9 +74,9 @@
                 const now = Date.now();
                 this.itemsForTable = this.itemsForTable.filter(item =>  this.parseDate(item['Час']) > now);
 
-                if (length !== this.itemsForTable.length) {
-                    // console.log('changes!', this.itemsForTable);
-                }
+                // if (length !== this.itemsForTable.length) {
+                //     console.log('changes!', this.itemsForTable);
+                // }
 
                 if (this.itemsForTable.length === 0) {
                     clearInterval(this.intervalId);
@@ -82,9 +91,18 @@
             }
         },
         mounted() {
-            this.removeItems();
-            const ONE_MINUTE = 30000;
-            this.timer = setInterval(this.removeItems, ONE_MINUTE);
+            this.channel
+                .listen('SendCourtSessionsToPusherWithQueue', (response) => {
+                    console.log(response.item);
+                    if ("clear" in response.item) {
+                        this.itemsForTable = [];
+                    }
+                    this.itemsForTable.push(response.item);
+                });
+
+            // this.removeItems();
+            // const ONE_SECOND = 1000;
+            // this.timer = setInterval(this.removeItems, ONE_SECOND);
         }
     }
 </script>

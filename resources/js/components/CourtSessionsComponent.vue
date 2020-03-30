@@ -100,9 +100,9 @@
                     this.itemsForTable.push(response.item);
                 });
 
-            // this.removeItems();
-            // const ONE_SECOND = 1000;
-            // this.timer = setInterval(this.removeItems, ONE_SECOND);
+            this.removeItems();
+            const ONE_SECOND = 1000;
+            this.timer = setInterval(this.removeItems, ONE_SECOND);
         }
     }
 </script>

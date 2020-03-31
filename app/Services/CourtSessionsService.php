@@ -100,7 +100,7 @@ class CourtSessionsService
     {
         try {
             $itemsFromRedis = RedisService::getAll()->sortBy('key')->values();
-            //dd($itemsFromRedis);
+            //dump($itemsFromRedis);
         } catch (Exception $e) {
             $errorMsg = sprintf(
                 'Error get all items from redis. %s.  Class - %s, line - %d',

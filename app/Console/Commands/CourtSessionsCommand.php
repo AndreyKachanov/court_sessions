@@ -49,7 +49,16 @@ class CourtSessionsCommand extends Command
      */
     public function handle()
     {
+         //dd(storage_path());
+        echo "-----------------------------------------------" . PHP_EOL;
+        //echo php_uname();
+        //echo PHP_EOL;
+        //echo get_current_user();
+        //echo PHP_EOL;
         $currentDay = Carbon::now();
+
+        dump($currentDay->format('d-m-Y H:i:s'));
+
         if ($currentDay->dayOfWeek === 6 || $currentDay->dayOfWeek === 0) {
             $this->error("dayOfWeek === 6 or dayOfWeek === 0");
             return false;
@@ -207,14 +216,11 @@ class CourtSessionsCommand extends Command
         $countApiItems = $apiItems->count();
         $countRedisItems = $redisItems->count();
 
-        echo "-----------------------------------------------" . PHP_EOL;
         $this->info("countCurrentTimeApiItems = " . $countApiItems);
         $this->info("countCurrentTimeRedisItems = " . $countRedisItems);
 
         // размер массивов не совпадает, или если массив из апи не идентичен массиву из редиса
         if (($countApiItems !== $countRedisItems) || !$this->service->isEqual($apiItems, $redisItems)) {
-
-            dump(Carbon::now()->format('d-m-Y H:i:s'));
             $this->info("Update redis.");
             echo "currentTimeApiItems = ";
             dump($apiItems->toArray());

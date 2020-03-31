@@ -2,13 +2,21 @@
 
 namespace App\Services;
 
-use App\Events\SendCourtSessionsToPusherWithQueue;
 use Exception;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Redis;
 
+/**
+ * Class RedisService
+ * @package App\Services
+ */
 class RedisService
 {
+    public const MY_PREFIX = 'court_session';
+    public const SEARCH_PATTERN = self::MY_PREFIX . ':*';
+    /**
+     * @var int
+     */
     private int $key;
     /**
      * @var string
@@ -26,6 +34,7 @@ class RedisService
      * @var string
      */
     private string $involved;
+
     /**
      * @var string
      */
@@ -40,13 +49,6 @@ class RedisService
      * @var string
      */
     private string $room;
-
-
-    //public static string $prefix = 'court_session:';
-
-    public const MY_PREFIX = 'court_session';
-    public const SEARCH_PATTERN = self::MY_PREFIX . ':*';
-
 
     /**
      * RedisService constructor.
@@ -79,11 +81,12 @@ class RedisService
         $this->room = $room;
     }
 
-
+    /**
+     * Insert data to redis key
+     */
     public function store()
     {
         $key = self::getKey($this->date, $this->number);
-        //dump($key);
         Redis::hmset($key, [
             'key'         => $this->key,
             'date'        => $this->date,
@@ -94,30 +97,6 @@ class RedisService
             'add_address' => $this->address,
             'courtroom'   => $this->room,
         ]);
-    }
-
-    /**
-     * @param $date
-     * @param $number
-     * @return RedisService|bool
-     */
-    public static function find($date, $number)
-    {
-        $key = self::getKey($date, $number);
-        $stored = Redis::hgetall($key);
-        //dd($stored);
-        if (!empty($stored)) {
-            return new self(
-                $stored['date'],
-                $stored['number'],
-                $stored['judges'],
-                $stored['involved'],
-                $stored['description'],
-                $stored['add_address'],
-                $stored['room'],
-            );
-        }
-        return false;
     }
 
     /**
@@ -132,7 +111,7 @@ class RedisService
         $keys = Redis::keys(self::SEARCH_PATTERN);
         //dd($keys);
         if (count($keys) === 0) {
-            $errorMessage = "No keys with pattern - " . $frameworkPrefix . self::SEARCH_PATTERN ;
+            $errorMessage = "No keys with pattern - " . $frameworkPrefix . self::SEARCH_PATTERN;
             throw new Exception($errorMessage);
         }
         $courtSessions = [];
@@ -198,24 +177,11 @@ class RedisService
     /**
      * @param Collection $fetchedItems
      */
-    public static function updateData(Collection $fetchedItems, Collection $itemsToPusher) {
-        //dd($fetchedItems);
+    public static function updateData(Collection $fetchedItems)
+    {
         try {
-            //Redis::transaction(function() use ($fetchedItems, $itemsToPusher) {
-                //dd($fetchedItems);
-                RedisService::removeOldKeys();
-                RedisService::insertToRedis($fetchedItems);
-
-                $itemsToPusher->each(function ($item, $key) {
-                    //добавляем ключ clear для первого элемента массива -
-                    //нужно для того, чтобы очистить массив с элементами на фронте
-                    if ($key === 0 ) {
-                        $item['clear'] = '';
-                    }
-
-                    broadcast(new SendCourtSessionsToPusherWithQueue($item));
-                });
-            //});
+            RedisService::removeOldKeys();
+            RedisService::insertToRedis($fetchedItems);
         } catch (Exception $e) {
             $errorMsg = sprintf(
                 'Парсинг заседаний. Ошибка во время обновления данных. %s.  Class - %s, line - %d',

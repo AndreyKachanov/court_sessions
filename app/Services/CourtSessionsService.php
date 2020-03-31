@@ -3,11 +3,16 @@
 
 namespace App\Services;
 
+use App\Events\SendCourtSessionsToPusherWithQueue;
 use Carbon\Carbon;
 use GuzzleHttp\Client;
 use Exception;
 use Illuminate\Support\Collection;
 
+/**
+ * Class CourtSessionsService
+ * @package App\Services
+ */
 class CourtSessionsService
 {
     /**
@@ -15,19 +20,27 @@ class CourtSessionsService
      */
     private Client $client;
 
+    /**
+     * @var string
+     */
     private string $needAddress;
 
+    /**
+     * CourtSessionsService constructor.
+     * @param Client $client
+     */
     public function __construct(Client $client)
     {
         $this->client = $client;
         $this->needAddress = trim(config('court_sessions.need_address'));
-        //dd($this->excludeAddress);
     }
 
+    /**
+     * @return Collection
+     */
     public function fetchItems(): Collection
     {
         dump("get items from court.gov.ua");
-        $data = [];
         $url = 'https://hcac.court.gov.ua/new.php';
         $method = 'POST';
         $headers = [
@@ -49,16 +62,224 @@ class CourtSessionsService
         ];
 
         $data = $this->getResponseByGuzzleClient($method, $url, $headers, $formParams);
-        //dd($data);
         return collect($data);
     }
 
+    /**
+     * @return array
+     */
+    public function getFields(): array
+    {
+        $arr = [];
+        $columns = config('court_sessions.columns');
+        foreach ($columns as $value) {
+            $arr[] = [
+                'key'      => $value['name'],
+                'sortable' => $value['sortable']
+            ];
+        }
+
+        return $arr;
+    }
+
+    /**
+     * @return Collection
+     * @throws Exception
+     */
+    public function getCurrentDayItemsFromRedis(): Collection
+    {
+        $itemsFromRedis = RedisService::getAll()->sortBy('key')->values();
+        $courtSessions = $this->getCurrentDayItems($itemsFromRedis);
+        return $this->convertItems($courtSessions);
+    }
+
+    /**
+     * @return Collection
+     */
+    public function getCurrentTimeItemsFromRedis(): Collection
+    {
+        try {
+            $itemsFromRedis = RedisService::getAll()->sortBy('key')->values();
+            //dd($itemsFromRedis);
+        } catch (Exception $e) {
+            $errorMsg = sprintf(
+                'Error get all items from redis. %s.  Class - %s, line - %d',
+                $e->getMessage(),
+                __CLASS__,
+                __LINE__
+            );
+            dd($errorMsg);
+        }
+
+        $courtSessions = $this->getMoreCurrentTimeItems($itemsFromRedis);
+        return $this->convertItems($courtSessions);
+    }
+
+    /**
+     * @return Collection
+     */
+    public function getItemsFromRedis(): Collection
+    {
+        try {
+            $items = RedisService::getAll()->sortBy('key')->values();
+        } catch (Exception $e) {
+            $errorMsg = sprintf(
+                'Error get all items from redis. %s.  Class - %s, line - %d',
+                $e->getMessage(),
+                __CLASS__,
+                __LINE__
+            );
+            dd($errorMsg);
+        }
+
+        return $items;
+    }
+
+    /**
+     * @param Collection $collection
+     * @return Collection
+     */
+    public function getCurrentDayItems(Collection $collection): Collection
+    {
+        $collection = $collection->filter(function ($item, $key) {
+            //dd($item);
+            if (!isset($item['date'])) {
+                dd("No key 'date' in this key ->> " . $key);
+            }
+            $isToday = Carbon::parse($item['date'])->isToday();
+            $needAddress = ($item['add_address'] === $this->needAddress);
+            return $isToday && $needAddress;
+        });
+        return $collection;
+    }
+
+    /**
+     * @param Collection $collection
+     * @return Collection
+     */
+    public function getFirstMondayItems(Collection $collection): Collection
+    {
+        $firstMonday = Carbon::now()->modify('next monday');
+        return $collection->filter(function ($item, $key) use ($firstMonday) {
+            $itemDate = $item['date'];
+            if (!isset($itemDate)) {
+                dd("No key 'date' in this key ->> " . $key);
+            }
+
+            $needAddress = ($item['add_address'] === $this->needAddress);
+            $isFirstMonday = Carbon::parse($itemDate)->diffInDays($firstMonday) == 0;
+
+            return $needAddress && $isFirstMonday;
+        });
+    }
+
+    /**
+     * @param Collection $collection
+     * @return Collection
+     */
+    public function getMoreCurrentTimeItems(Collection $collection): Collection
+    {
+        $collection = $collection = $collection->filter(function ($item, $key) {
+            if (!isset($item['date'])) {
+                dd("No key 'date' in this key ->> " . $key);
+            }
+            $dateInCollection = Carbon::parse($item['date']);
+
+            $isToday = Carbon::parse($item['date'])->isToday();
+            $greaterCurrent = $dateInCollection->greaterThan(Carbon::now());
+            $needAddress = ($item['add_address'] === $this->needAddress);
+            return $isToday && $greaterCurrent && $needAddress;
+        });
+
+        return $collection;
+    }
+
+    /**
+     * @param Collection $collection
+     * @return Collection
+     */
+    public function convertItems(Collection $collection): Collection
+    {
+        $arr = [];
+        $columns = config('court_sessions.columns');
+        foreach ($columns as $column) {
+            $columnKeys[] = $column['name'];
+        }
+        $columnKeys[] = 'key';
+        foreach ($collection as $item) {
+            unset($item['add_address']);
+            $arr[] = array_combine($columnKeys, $this->sortArrayKeys($item));
+        }
+        return collect($arr);
+    }
+
+    /**
+     * @param Collection $items
+     * @throws Exception
+     */
+    public function checkFetchedItems(Collection $items)
+    {
+        if ($items->count() == 0) {
+            throw new Exception('The returned array from court.gov.ua has 0 elements');
+        }
+
+        $items->each(function (array $item) {
+            if ($item['date'] == '' || $item['judge'] == '' || $item['number'] == '') {
+                $errorMessage = "The returned array has empty values => " . print_r($item, true);
+                throw new Exception($errorMessage);
+            }
+        });
+    }
+
+    /**
+     * @param Collection $itemsFromApi
+     * @param Collection $itemsFromRedis
+     * @return bool
+     * @throws Exception
+     */
+    public function isEqual(Collection $itemsFromApi, Collection $itemsFromRedis): bool
+    {
+        //Сравниваем 2 массива. Если они разные - записываем в редис новые данные за все дни
+        foreach ($itemsFromApi as $key => $item) {
+            if (count($item) !== count($itemsFromRedis[$key])) {
+                throw new Exception('count($item) !== count($itemsFromRedis[$key])');
+            }
+            //если в массивах разные данные
+            if (collect($item)->diff(collect($itemsFromRedis[$key]))->count() !== 0) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * @param Collection $itemsToPusher
+     */
+    public function sendToPusher(Collection $itemsToPusher)
+    {
+        $itemsToPusher->each(function ($item, $key) {
+            //добавляем ключ clear для первого элемента массива -
+            //нужно для того, чтобы очистить таблицу во vue js
+            if ($key === 0) {
+                $item['clear'] = '';
+            }
+            broadcast(new SendCourtSessionsToPusherWithQueue($item));
+        });
+    }
+
+    /**
+     * @param string $method
+     * @param string $url
+     * @param array $headers
+     * @param array $formParams
+     * @return array
+     */
     private function getResponseByGuzzleClient(string $method, string $url, array $headers, array $formParams): array
     {
         $arr = [];
         try {
             $response = $this->client->request($method, $url, [
-                'headers' => $headers,
+                'headers'     => $headers,
                 'form_params' => $formParams
             ])->getBody()->getContents();
 
@@ -88,182 +309,14 @@ class CourtSessionsService
         return $arr;
     }
 
-    public function getFields(): array
-    {
-        $arr = [];
-        $columns = config('court_sessions.columns');
-        foreach ($columns as $value) {
-            $arr[] = [
-                'key' => $value['name'],
-                'sortable' => $value['sortable']
-            ];
-        }
-
-        return $arr;
-    }
-
-    public function getCurrentDayItemsFromRedis(): Collection
-    {
-        //$currentDay = Carbon::now();
-        //dd($currentDay->dayOfWeek);
-        $itemsFromRedis = RedisService::getAll()->sortBy('key')->values();
-
-        //Если сегодня не суббота и не воскресенье - извлекаем данные за текущий день
-        //if ($currentDay->dayOfWeek === 6 || $currentDay->dayOfWeek === 0) {
-        //    dd('суббота воскр');
-        //    $courtSessions = $this->getFirstMondayItems($itemsFromRedis);
-        //    //dd($courtSessions);
-        //}
-        //иначе за первый понедельник
-        //else {
-            //dd('пн - пт');
-            $courtSessions = $this->getCurrentDayItems($itemsFromRedis);
-        //}
-
-        //dd($courtSessions);
-        return $this->convertItems($courtSessions);
-
-    }
-
     /**
-     * @return Collection
+     * Sorting array by keys
+     *
+     * @param array $item
+     * @return array
      */
-    public function getCurrentTimeItemsFromRedis(): Collection
-    {
-        try {
-            $itemsFromRedis = RedisService::getAll()->sortBy('key')->values();
-            //dd($itemsFromRedis);
-        } catch (Exception $e) {
-            $errorMsg = sprintf(
-                'Error get all items from redis. %s.  Class - %s, line - %d',
-                $e->getMessage(),
-                __CLASS__,
-                __LINE__
-            );
-             dd($errorMsg);
-        }
-
-        $courtSessions = $this->getMoreCurrentTimeItems($itemsFromRedis);
-        return $this->convertItems($courtSessions);
-    }
-
-    /**
-     * @return Collection
-     */
-    public function getItemsFromRedis(): Collection
-    {
-        try {
-            $items = RedisService::getAll()->sortBy('key')->values();
-        } catch (Exception $e) {
-            $errorMsg = sprintf(
-                'Error get all items from redis. %s.  Class - %s, line - %d',
-                $e->getMessage(),
-                __CLASS__,
-                __LINE__
-            );
-            dd($errorMsg);
-        }
-
-        return $items;
-    }
-
-    public function getCurrentDayItems(Collection $collection): Collection
-    {
-        $collection = $collection->filter(function ($item, $key) {
-            //dd($item);
-            if (!isset($item['date'])) {
-                dd("No key 'date' in this key ->> " . $key);
-            }
-            $isToday = Carbon::parse($item['date'])->isToday();
-            //dd($isToday);
-            $needAddress = ($item['add_address'] === $this->needAddress);
-            //$needAddress = true;
-
-            return $isToday && $needAddress;
-        });
-        //dd($collection);
-        return $collection;
-    }
-
-    public function getFirstMondayItems(Collection $collection): Collection
-    {
-        $firstMonday = Carbon::now()->modify('next monday');
-        return $collection->filter(function ($item, $key) use ($firstMonday) {
-            $itemDate = $item['date'];
-            if (!isset($itemDate)) {
-                dd("No key 'date' in this key ->> " . $key);
-            }
-
-            $needAddress = ($item['add_address'] === $this->needAddress);
-            $isFirstMonday = Carbon::parse($itemDate)->diffInDays($firstMonday) == 0;
-
-            return $needAddress && $isFirstMonday;
-        });
-    }
-
-    public function getMoreCurrentTimeItems(Collection $collection): Collection
-    {
-        $collection = $collection = $collection->filter(function ($item, $key) {
-            //dump($item);
-            //$t = ($item['add_address'] === $this->excludeAddress);
-            //dd($t);
-            //dump($item['add_address']);
-            //dd($this->excludeAddress);
-            if (!isset($item['date'])) {
-                dd("No key 'date' in this key ->> " . $key);
-            }
-            $dateInCollection = Carbon::parse($item['date']);
-
-            $isToday = Carbon::parse($item['date'])->isToday();
-            $greaterCurrent = $dateInCollection->greaterThan(Carbon::now());
-            $needAddress = ($item['add_address'] === $this->needAddress);
-            return $isToday && $greaterCurrent && $needAddress;
-        });
-
-        return $collection;
-    }
-
-    public function convertItems(Collection $collection): Collection
-    {
-        $arr = [];
-        $columns = config('court_sessions.columns');
-        foreach ($columns as $column) {
-            $columnKeys[] = $column['name'];
-        }
-        //$columnKeys[] = 'Адреса';
-        //unset($columnKeys[5]);
-        $columnKeys[] = 'key';
-        //dump($columnKeys);
-        foreach ($collection as $item) {
-            unset($item['add_address']);
-            //dump($item);
-            //dd(array_combine($columnKeys, $this->sortArrayKeys($item)));
-            $arr[] = array_combine($columnKeys, $this->sortArrayKeys($item));
-        }
-        return collect($arr);
-    }
-
-    /**
-     * @param Collection $items
-     * @throws Exception
-     */
-    public function checkFetchedItems(Collection $items)
-    {
-        if ($items->count() == 0) {
-            throw new Exception('The returned array from court.gov.ua has 0 elements');
-        }
-
-        $items->each(function (array $item) {
-            if ($item['date'] == '' || $item['judge'] == '' || $item['number'] == '') {
-                $errorMessage = "The returned array has empty values => "  . print_r($item, true) ;
-                throw new Exception($errorMessage);
-            }
-        });
-    }
-
     private function sortArrayKeys(array $item): array
     {
-        //dump($item);
         $order = [
             'date',
             'judge',
@@ -272,11 +325,6 @@ class CourtSessionsService
             'description',
             'courtroom',
         ];
-
-        //dd(array_replace(array_flip($order), $item));
-        //dump($order);
-        //dump($item);
-        //dd(array_replace(array_flip($order), $item));
         return array_replace(array_flip($order), $item);
     }
 }

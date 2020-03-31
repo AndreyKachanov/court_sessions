@@ -13,17 +13,22 @@ class HomeController extends Controller
      */
     private CourtSessionsService $service;
 
+    /**
+     * HomeController constructor.
+     * @param CourtSessionsService $service
+     */
     public function __construct(CourtSessionsService $service)
     {
         $this->service = $service;
     }
 
+    /**
+     * @return \Illuminate\Contracts\View\Factory|\Illuminate\View\View
+     */
     public function index()
     {
         $fields = $this->service->getFields();
-        //dd($fields);
         //$items = $this->service->getCurrentDayItemsFromRedis();
-        //dd($items);
         $items = $this->service->getCurrentTimeItemsFromRedis();
         //dd($items);
         return view('court_sessions.index', [
@@ -32,6 +37,9 @@ class HomeController extends Controller
         ]);
     }
 
+    /**
+     * @param Request $request
+     */
     public function setRoomNumber(Request $request)
     {
         if (isset($request->key)) {

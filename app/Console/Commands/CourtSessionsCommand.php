@@ -7,8 +7,11 @@ use App\Services\RedisService;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Console\Command;
-use Illuminate\Support\Collection;
 
+/**
+ * Class CourtSessionsCommand
+ * @package App\Console\Commands
+ */
 class CourtSessionsCommand extends Command
 {
     /**
@@ -26,83 +29,80 @@ class CourtSessionsCommand extends Command
     protected $description = 'Parse court sessions';
 
     /**
-     * Create a new command instance.
-     *
-     * @return void
+     * @var CourtSessionsService
      */
+    private CourtSessionsService $service;
 
-    private $service;
-
+    /**
+     * CourtSessionsCommand constructor.
+     * @param CourtSessionsService $service
+     */
     public function __construct(CourtSessionsService $service)
     {
         parent::__construct();
-
         $this->service = $service;
     }
 
     /**
-     * Execute the console command.
-     *
      * @return bool
      * @throws Exception
      */
     public function handle()
     {
         $currentDay = Carbon::now();
-
         if ($currentDay->dayOfWeek === 6 || $currentDay->dayOfWeek === 0) {
             $this->error("dayOfWeek === 6 or dayOfWeek === 0");
             return false;
         }
-
         $fetchedItems = $this->service->fetchItems();
         $this->service->checkFetchedItems($fetchedItems);
-        //dd($fetchedItems->slice(0, 4));
+        // dd($fetchedItems->slice(0, 4));
 
         //$fetchedItems = $fetchedItems->map(function ($item, $key) {
         //    if ($key == 0) {
-        //        $item['date'] = '30.03.2020 09:00';
-        //        $item['judge'] = 'Петров Сидоров';
+        //        $item['date'] = '31.03.2020 09:00';
+        //        $item['judge'] = 'Петров Сидоров111';
+        //        $item['add_address'] = '03057, м. Київ, просп. Перемоги, 41';
         //    }
         //    if ($key == 1) {
-        //        $item['date'] = '30.03.2020 23:00';
-        //        $item['judge'] = 'saasfasfsadff sa asfsadfsadf ';
+        //        $item['date'] = '31.03.2020 23:00';
+        //        $item['judge'] = 'saasfasfsadff sa asfsadfsadf111 ';
+        //        $item['add_address'] = '03057, м. Київ, просп. Перемоги, 41';
         //    }
         //    if ($key == 2) {
-        //        $item['date'] = '30.03.2020 23:05';
+        //        $item['date'] = '31.03.2020 23:05';
         //        $item['judge'] = '4454 Качввыаанов Качанов';
         //        $item['add_address'] = '03057, м. Київ, просп. Перемоги, 41';
         //    }
         //
         //    if ($key == 3) {
-        //        $item['date'] = '30.03.2020 23:50';
+        //        $item['date'] = '31.03.2020 23:50';
         //        $item['judge'] = '45';
         //        $item['add_address'] = '03057, м. Київ, просп. Перемоги, 41';
         //    }
         //
         //    return $item;
         //});
-
-        //dd($fetchedItems->slice(0, 4));
-        $currentTimeRedisItems = $this->service->getCurrentTimeItemsFromRedis()
+        // dd($fetchedItems->slice(0, 4));
+        $redisItems = $this->service->getCurrentTimeItemsFromRedis()
             ->map(function ($item) {
-            return [
-                'date'        => $item['Час'],
-                'judge'       => $item['Склад суду'],
-                'number'      => $item['Номер справи'],
-                'involved'    => $item['Сторони по справі'],
-                'description' => $item['Суть позову'],
-                'courtroom'   => $item['Зал'],
-                'key'         => $item['key'],
-            ];
-        });
+                return [
+                    'date'        => $item['Час'],
+                    'judge'       => $item['Склад суду'],
+                    'number'      => $item['Номер справи'],
+                    'involved'    => $item['Сторони по справі'],
+                    'description' => $item['Суть позову'],
+                    'courtroom'   => $item['Зал'],
+                    'key'         => $item['key'],
+                ];
+            });
 
-        //Переносит номер зала из редиса в массив который мы будем записывать в редис
-        //нужно для того, чтобы сохранить номера залов, которые ввел пользователь, и которые
-        //сохранились в редис
-        if ($currentTimeRedisItems->count() > 0) {
-            $fetchedItems = $fetchedItems->map(function ($item) use ($currentTimeRedisItems) {
-                foreach ($currentTimeRedisItems as $rItem) {
+        // Переносит номер зала из редиса в массив который мы будем записывать в редис
+        // нужно для того, чтобы сохранить номера залов, которые ввел пользователь, и которые
+        // сохранились в редис
+        if ($redisItems->count() > 0) {
+            $fetchedItems = $fetchedItems->map(function ($item) use ($redisItems) {
+                foreach ($redisItems as $rItem) {
                     if ($item['date'] === $rItem['date'] && $item['number'] === $rItem['number']) {
                         $item['courtroom'] = $rItem['courtroom'];
                     }
@@ -111,14 +111,17 @@ class CourtSessionsCommand extends Command
             });
         }
 
-        //$currentTimeRedisItems = collect(
+        //$redisItems = collect(
         //    [
         //        [
         //            "date" => "29.03.2020 09:00",
         //            "judge" => "6666654444444444444",
         //            "number" => "757/32971/19-к",
-        //            "involved" => "Державний обвинувач: Спеціалізована антикорупційна прокуратура Офісу Генерального прокурора, обвинувачений: Білик Ганна Олексіївна, захисник: Вилков Сергій Валентинович, захисник: Головненко Дмитро Олександрович, захисник: Білик Олександр Миколайович, захисник: Голосій Ростислав Анатолійович",
-        //            "description" => "Прийняття пропозиції, обіцянки або одержання неправомірної вигоди службовою особою",
+        //            "involved" => "Державний обвинувач: Спеціалізована антикорупційна прокуратура Офісу Генерального
+        // прокурора, обвинувачений: Білик Ганна Олексіївна, захисник: Вилков Сергій Валентинович, захисник: Головненко
+        // Дмитро Олександрович, захисник: Білик Олександр Миколайович, захисник: Голосій Ростислав Анатолійович",
+        //            "description" => "Прийняття пропозиції, обіцянки або одержання неправомірної вигоди службовою
+        // особою",
         //            "courtroom" => "66",
         //            "key" => "1"
         //        ],
@@ -126,8 +129,10 @@ class CourtSessionsCommand extends Command
         //            "date" => "29.03.2020 09:10",
         //            "judge" => "Луценко Снигур Дубинко",
         //            "number" => "522/10468/19",
-        //            "involved" => "захисник: Вилков Сергій Валентинович, захисник: Головненко Дмитро Олександрович, захисник: Білик Олександр Миколайович, захисник: Голосій Ростислав Анатолійович",
-        //            "description" => "Прийняття пропозиції, обіцянки або одержання неправомірної вигоди службовою особою",
+        //            "involved" => "захисник: Вилков Сергій Валентинович, захисник: Головненко Дмитро Олександрович,
+        // захисник: Білик Олександр Миколайович, захисник: Голосій Ростислав Анатолійович",
+        //            "description" => "Прийняття пропозиції, обіцянки або одержання неправомірної вигоди службовою
+        // особою",
         //            "courtroom" => "77",
         //            "key" => "2"
         //        ],
@@ -135,24 +140,29 @@ class CourtSessionsCommand extends Command
         //            "date" => "29.03.2020 10:00",
         //            "judge" => "Танасевич О.В. Танасевич О.В. Танасевич О.В.",
         //            "number" => "444/1010/21",
-        //            "involved" => "Державний захисник: Вилков Сергій Валентинович, захисник: Головненко Дмитро Олександрович, захисник: Білик Олександр Миколайович, захисник: Голосій Ростислав Анатолійович",
-        //            "description" => "safd asdf sadf hkjsahdf kashdfkjhsakdjf sdalf kjalskdjf lksajd flыдвлао длыво адою",
+        //            "involved" => "Державний захисник: Вилков Сергій Валентинович, захисник: Головненко Дмитро
+        // Олександрович, захисник: Білик Олександр Миколайович, захисник: Голосій Ростислав Анатолійович",
+        //            "description" => "safd asdf sadf hkjsahdf kashdfkjhsakdjf sdalf kjalskdjf lksajd flыдвлао длыво
+        // адою",
         //            "courtroom" => "777",
         //            "key" => "3"
         //        ],
         //    ]
         //);
 
-        //dd($currentTimeRedisItems);
+        // dd($redisItems);
 
-        //$currentTimeApiItems = collect(
+        // $apiItems = collect(
         //    [
         //        [
         //            "date" => "29.03.2020 09:00",
         //            "judge" => "6666654444444444444",
         //            "number" => "757/32971/19-к",
-        //            "involved" => "Державний обвинувач: Спеціалізована антикорупційна прокуратура Офісу Генерального прокурора, обвинувачений: Білик Ганна Олексіївна, захисник: Вилков Сергій Валентинович, захисник: Головненко Дмитро Олександрович, захисник: Білик Олександр Миколайович, захисник: Голосій Ростислав Анатолійович",
-        //            "description" => "Прийняття пропозиції, обіцянки або одержання неправомірної вигоди службовою особою",
+        //            "involved" => "Державний обвинувач: Спеціалізована антикорупційна прокуратура Офісу Генерального
+        // прокурора, обвинувачений: Білик Ганна Олексіївна, захисник: Вилков Сергій Валентинович, захисник: Головненко
+        // Дмитро Олександрович, захисник: Білик Олександр Миколайович, захисник: Голосій Ростислав Анатолійович",
+        //            "description" => "Прийняття пропозиції, обіцянки або одержання неправомірної вигоди службовою
+        // особою",
         //            "courtroom" => "66",
         //            "key" => "1"
         //        ],
@@ -160,8 +170,10 @@ class CourtSessionsCommand extends Command
         //            "date" => "29.03.2020 09:10",
         //            "judge" => "Луценко Снигур Дубинко",
         //            "number" => "522/10468/19",
-        //            "involved" => "захисник: Вилков Сергій Валентинович, захисник: Головненко Дмитро Олександрович, захисник: Білик Олександр Миколайович, захисник: Голосій Ростислав Анатолійович",
-        //            "description" => "Прийняття пропозиції, обіцянки або одержання неправомірної вигоди службовою особою",
+        //            "involved" => "захисник: Вилков Сергій Валентинович, захисник: Головненко Дмитро
+        // Олександрович, захисник: Білик Олександр Миколайович, захисник: Голосій Ростислав Анатолійович",
+        //            "description" => "Прийняття пропозиції, обіцянки або одержання неправомірної вигоди службовою
+        // особою",
         //            "courtroom" => "77",
         //            "key" => "2"
         //        ],
@@ -169,15 +181,17 @@ class CourtSessionsCommand extends Command
         //            "date" => "29.03.2020 10:00",
         //            "judge" => "Танасевич О.В. Танасевич О.В. Танасевич О.В.",
         //            "number" => "444/1010/21",
-        //            "involved" => "Державний захисник: Вилков Сергій Валентинович, захисник: Головненко Дмитро Олександрович, захисник: Білик Олександр Миколайович, захисник: Голосій Ростислав Анатолійович",
-        //            "description" => "safd asdf sadf hkjsahdf kashdfkjhsakdjf sdalf kjalskdjf lksajd flыдвлао длыво адою",
+        //            "involved" => "Державний захисник: Вилков Сергій Валентинович, захисник: Головненко Дмитро
+        // Олександрович, захисник: Білик Олександр Миколайович, захисник: Голосій Ростислав Анатолійович",
+        //            "description" => "safd asdf sadf hkjsahdf kashdfkjhsakdjf sdalf kjalskdjf lksajd flыдвлао
+        // длыво адою",
         //            "courtroom" => "777",
         //            "key" => "3"
         //        ],
         //    ]
         //);
 
-        $currentTimeApiItems = $this->service->getMoreCurrentTimeItems($fetchedItems)
+        $apiItems = $this->service->getMoreCurrentTimeItems($fetchedItems)
             ->map(function ($item, $key) {
                 return [
                     'date'        => $item['date'],
@@ -190,72 +204,35 @@ class CourtSessionsCommand extends Command
                 ];
             })->values();
 
-        $countCurrentTimeApiItems = $currentTimeApiItems->count();
-        $countCurrentTimeRedisItems = $currentTimeRedisItems->count();
+        $countApiItems = $apiItems->count();
+        $countRedisItems = $redisItems->count();
 
         echo "-----------------------------------------------" . PHP_EOL;
-        $this->info("countCurrentTimeApiItems = " . $countCurrentTimeApiItems);
-        $this->info("countCurrentTimeRedisItems = " . $countCurrentTimeRedisItems);
+        $this->info("countCurrentTimeApiItems = " . $countApiItems);
+        $this->info("countCurrentTimeRedisItems = " . $countRedisItems);
 
         // размер массивов не совпадает, или если массив из апи не идентичен массиву из редиса
-        if (
-            ($countCurrentTimeApiItems !== $countCurrentTimeRedisItems) ||
-            !$this->isEqual($currentTimeApiItems, $currentTimeRedisItems)
-        ) {
+        if (($countApiItems !== $countRedisItems) || !$this->service->isEqual($apiItems, $redisItems)) {
+
             dump(Carbon::now()->format('d-m-Y H:i:s'));
             $this->info("Update redis.");
             echo "currentTimeApiItems = ";
-            dump($currentTimeApiItems->toArray());
+            dump($apiItems->toArray());
             echo "currentTimeRedisItems = ";
-            dump($currentTimeRedisItems->toArray());
+            dump($redisItems->toArray());
 
-            $dataToPusher = $this->service->convertItems($currentTimeApiItems);
-            RedisService::updateData($fetchedItems, $dataToPusher);
+            RedisService::updateData($fetchedItems);
+            $itemsToPusher = $this->service->convertItems($apiItems);
+
+            $this->service->sendToPusher($itemsToPusher);
             $this->info("Send data to pusher");
             echo "-----------------------------------------------" . PHP_EOL;
+
             return true;
         } else {
             $this->info("Данные одинаковы");
             echo "-----------------------------------------------" . PHP_EOL;
             return false;
         }
-    }
-
-    /**
-     * @param Collection $itemsFromApi
-     * @param Collection $itemsFromRedis
-     * @return bool
-     * @throws Exception
-     */
-    private function isEqual(Collection $itemsFromApi, Collection $itemsFromRedis): bool
-    {
-        //dump($itemsFromApi);
-        //dd($itemsFromRedis);
-        //Сравниваем 2 массива. Если они разные - записываем в редис новые данные за все дни
-        // + отправляем данные в pusher за текущий день
-        /**@var */
-        foreach ($itemsFromApi as $key => $item) {
-            //dump($item);
-            //$item['judge'] = 'zalupa';
-            //unset($item['date']);
-            //dump($item);
-            //dd($itemsFromRedis[$key]);
-
-            //dd(collect($item)->diff(collect($itemsFromRedis[$key]))->count());
-
-            if (count($item) !== count($itemsFromRedis[$key])) {
-                throw new Exception('count($item) !== count($itemsFromRedis[$key])');
-                //return false;
-                //dd(1);
-            }
-
-            //если в массивах разные данные
-            if (collect($item)->diff(collect($itemsFromRedis[$key]))->count() !== 0 ) {
-                return false;
-                //dd(2);
-            }
-        }
-
-        return true;
     }
 }

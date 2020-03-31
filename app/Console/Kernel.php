@@ -31,7 +31,7 @@ class Kernel extends ConsoleKernel
         $schedule->command(CourtSessionsCommand::class)
             ->weekdays()
             ->everyFiveMinutes()
-            //->between('8:00', '18:00')
+            ->between('8:00', '18:00')
             ->appendOutputTo($filePath);
     }
 

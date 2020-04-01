@@ -232,12 +232,9 @@ class CourtSessionsCommand extends Command
 
             $this->service->sendToPusher($itemsToPusher);
             $this->info("Send data to pusher");
-            echo "-----------------------------------------------" . PHP_EOL;
-
             return true;
         } else {
             $this->info("Данные одинаковы");
-            echo "-----------------------------------------------" . PHP_EOL;
             return false;
         }
     }

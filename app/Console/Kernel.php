@@ -25,7 +25,7 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule)
     {
-        $filePath = storage_path() . '/logs/courtsessions.log';
+        $filePath = storage_path('/logs/courtsessions.log');
         //$filePath = 'test.txt';
 
         $schedule->command(CourtSessionsCommand::class)

@@ -29,9 +29,11 @@ class SetCourtSessionsToRedis
     public function handle($request, Closure $next)
     {
         $currentDay = Carbon::now();
+        //dump($currentDay->dayOfWeek);
 
         if (RedisService::getCountKeys() === 0) {
-            $fetchedItems = $this->service->fetchItems();
+            $this->handleItems();
+            //$fetchedItems = $this->service->fetchItems();
 
             //$fetchedItems = $fetchedItems->map(function ($item, $key) {
             //    if ($key == 0) {
@@ -58,21 +60,37 @@ class SetCourtSessionsToRedis
             //});
 
             //dd($fetchedItems);
-            $this->service->checkFetchedItems($fetchedItems);
-            RedisService::insertToRedis($fetchedItems);
-        } elseif ($currentDay->dayOfWeek !== 0 || $currentDay->dayOfWeek !== 6) {
+            //$this->service->checkFetchedItems($fetchedItems);
+            //RedisService::insertToRedis($fetchedItems);
+        } elseif ($currentDay->dayOfWeek !== 0 && $currentDay->dayOfWeek !== 6) {
+            //dd($currentDay->dayOfWeek);
             //Получаем первый элемент из редиса и сравниваем, текущий ли это день
             //Если не текущий - очщаем редис
             //Нужно для того, чтобы каждое утро были свежие данные
             $firstItemDate = Carbon::parse(RedisService::getAll()->sortBy('key')->values()[0]['date']);
             if (!Carbon::parse($firstItemDate)->isToday()) {
                 RedisService::removeOldKeys();
-                $fetchedItems = $this->service->fetchItems();
-                $this->service->checkFetchedItems($fetchedItems);
-                RedisService::insertToRedis($fetchedItems);
+                //$fetchedItems = $this->service->fetchItems();
+                //$this->service->checkFetchedItems($fetchedItems);
+                //RedisService::insertToRedis($fetchedItems);
+                $this->handleItems();
             }
         }
 
         return $next($request);
+    }
+
+    /**
+     * Handle items
+     */
+    private function handleItems()
+    {
+        $fetchedItems = $this->service->fetchItems();
+        try {
+            $this->service->checkFetchedItems($fetchedItems);
+        } catch (Exception $e) {
+            dd($e->getMessage());
+        }
+        RedisService::insertToRedis($fetchedItems);
     }
 }

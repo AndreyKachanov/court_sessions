@@ -40,7 +40,7 @@ class CourtSessionsService
      */
     public function fetchItems(): Collection
     {
-        dump("get items from court.gov.ua");
+        //dump("get items from court.gov.ua");
         $url = 'https://hcac.court.gov.ua/new.php';
         $method = 'POST';
         $headers = [

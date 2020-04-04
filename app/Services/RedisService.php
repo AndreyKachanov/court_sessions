@@ -124,7 +124,7 @@ class RedisService
 
     public static function removeOldKeys()
     {
-        dump('Remove items from redis.');
+        //dump('Remove items from redis.');
         $frameworkPrefix = config('database.redis.options.prefix');
         $keys = Redis::keys(self::SEARCH_PATTERN);
         //Redis::hdel($keys);
@@ -157,7 +157,7 @@ class RedisService
      */
     public static function insertToRedis(Collection $courtSessions)
     {
-        dump("Insert items to redis.");
+        //dump("Insert items to redis.");
         foreach ($courtSessions as $key => $item) {
             //dump($item);
             $courtSession = new self(

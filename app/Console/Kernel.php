@@ -33,7 +33,7 @@ class Kernel extends ConsoleKernel
             ->everyFiveMinutes()
             ->between('8:00', '18:00')
             ->appendOutputTo($filePath)
-            ->emailOutputOnFailure('a.kachanov@ics.gov.ua');
+            ->emailOutputOnFailure('andreii.kachanov@gmail.com');
     }
 
     /**

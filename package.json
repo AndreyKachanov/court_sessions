@@ -24,7 +24,7 @@
         "bootstrap-vue": "^2.7.0",
         "dotenv": "^8.2.0",
         "font-awesome": "^4.7.0",
-        "jquery": "^3.4.1",
+        "jquery": "^3.5.0",
         "laravel-echo": "^1.6.1",
         "pusher-js": "^5.1.1",
         "socket.io-client": "^2.3.0",
